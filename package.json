@@ -1,16 +1,13 @@
 {
-  "name": "divine-tx",
+  "name": "divine-transaction",
   "version": "1.0.0",
-  "description": "Divine Transaction Multiplication for Polygon MATIC",
-  "main": "index.js",
   "scripts": {
     "dev": "vercel dev",
-    "start": "vercel dev",
-    "build": "vercel build"
+    "start": "node api/fetchTxs.js",
+    "build": "echo 'No build needed for static frontend'"
   },
-  "author": "BeoCodez912",
-  "license": "MIT",
   "dependencies": {
-    "node-fetch": "^3.3.2"
+    "ethers": "^6.7.0",
+    "node-fetch": "^3.3.2"   // if you use fetch in backend
   }
 }
