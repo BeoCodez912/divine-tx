@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Divine Transaction - Polygon</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+</head>
+<body>
+<h2>Divine Transaction Multiplication</h2>
+<button id="connectWalletBtn">Connect MetaMask</button>
+<input id="fromInput" placeholder="From Address">
+<textarea id="toInput" placeholder="Recipient Addresses (comma separated)"></textarea>
+<input id="divisorInput" placeholder="Divisor Amount (min 1 wei)">
+<button id="fetchBtn">Fetch Last Transaction</button>
+<div id="lastAmount">Last Tx: N/A</div>
+<div id="previewDivided">Divided Amount per Recipient: N/A</div>
+<div id="txList"></div>
+<button id="sendBtn">Send Divided Blessings via MetaMask</button>
+
+<script>
+let provider, signer, lastTxValueWei;
+
+async function connectMetaMask() {
+  if(!window.ethereum) return alert("Install MetaMask");
+  await window.ethereum.request({ method: "eth_requestAccounts" });
+  provider = new ethers.BrowserProvider(window.ethereum);
+  signer = await provider.getSigner();
+  const address = await signer.getAddress();
+  document.getElementById("fromInput").value = address;
+  alert(`MetaMask connected: ${address}`);
+}
+
+async function fetchLastTxs() {
+  const fromAddr = document.getElementById("fromInput").value.trim();
+  if(!fromAddr) return alert("Enter address");
+  
+  try {
+    // Fetch from Vercel backend
+    const res = await fetch(`https://YOUR-VERCEL-PROJECT.vercel.app/api/fetchTxs?address=${fromAddr}&limit=5`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+
+    const txs = data.transactions;
+    lastTxValueWei = BigInt(txs[0].value);
+    document.getElementById("lastAmount").textContent = `Last Tx: ${ethers.formatEther(lastTxValueWei)} MATIC`;
+
+    // Show preview divided
+    updatePreview();
+
+    // List last transactions
+    const txList = document.getElementById("txList");
+    txList.innerHTML = "";
+    txs.forEach(tx => {
+      const date = new Date(tx.timeStamp * 1000).toLocaleString();
+      const div = document.createElement("div");
+      div.innerHTML = `Tx: <a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash}</a><br>
+                       From: ${tx.from}<br>To: ${tx.to}<br>Value: ${ethers.formatEther(BigInt(tx.value))} MATIC<br>${date}`;
+      txList.appendChild(div);
+    });
+
+  } catch(e){
+    console.error(e);
+    alert("Error fetching transactions");
+  }
+}
+
+function updatePreview() {
+  if(!lastTxValueWei) return;
+  const divisor = parseFloat(document.getElementById("divisorInput").value) || 0.000000000000000001;
+  const divisorWei = ethers.parseEther(divisor.toString());
+  const recipients = document.getElementById("toInput").value.split(",").map(a=>a.trim()).filter(Boolean);
+  if(recipients.length === 0) return;
+  const dividedWei = lastTxValueWei / divisorWei;
+  document.getElementById("previewDivided").textContent = `Divided Amount per Recipient: ${ethers.formatEther(dividedWei)} MATIC`;
+}
+
+async function sendBlessings() {
+  if(!lastTxValueWei) return alert("Fetch last transaction first");
+  const recipients = document.getElementById("toInput").value.split(",").map(a=>a.trim()).filter(Boolean);
+  if(recipients.length===0) return alert("Enter at least one recipient");
+  
+  const divisor = parseFloat(document.getElementById("divisorInput").value) || 0.000000000000000001;
+  const divisorWei = ethers.parseEther(divisor.toString());
+  const dividedWei = lastTxValueWei / divisorWei;
+
+  for(const to of recipients){
+    try{
+      const tx = await signer.sendTransaction({ to, value: dividedWei });
+      console.log(`Sent ${ethers.formatEther(dividedWei)} MATIC to ${to}`, tx);
+    }catch(e){
+      console.error(`Failed to send to ${to}`, e);
+    }
+  }
+}
+
+// --- Event Listeners ---
+document.getElementById("connectWalletBtn").addEventListener("click", connectMetaMask);
+document.getElementById("fetchBtn").addEventListener("click", fetchLastTxs);
+document.getElementById("sendBtn").addEventListener("click", sendBlessings);
+document.getElementById("toInput").addEventListener("input", updatePreview);
+document.getElementById("divisorInput").addEventListener("input", updatePreview);
+</script>
+</body>
+</html>
